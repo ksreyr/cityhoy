@@ -1,0 +1,85 @@
+version: '3.8'
+services:
+  web:
+    profiles: [ "deploy" ]
+    container_name: web
+    build:
+      context: ./
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV:
+      DATABASE_URL:
+      NEXTAUTH_URL:
+      NEXT_PUBLIC_SECRET:
+      NEXT_SECRET:
+      JWT_SECRET:
+    networks:
+      - rewards
+    depends_on:
+      - db
+      - pgadmin
+
+  db:
+    profiles: [ "deploy","dev" ]
+    container_name: db
+    image: postgres
+    environment:
+      POSTGRES_DB: noticity
+      POSTGRES_USER: userPostgres
+      POSTGRES_PASSWORD: passwordPostgres
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - rewards
+
+  pgadmin:
+    profiles: [ "deploy","dev" ]
+    container_name: pgadmin
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-pgadmin4@pgadmin.org}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-passwordPostgres}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    networks:
+      - rewards
+    restart: unless-stopped
+    depends_on:
+      - db
+
+  .nginx:
+    profiles: [ "deploy" ]
+    container_name: nginx
+    image: nginx:1.15-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+      - ./data/nginx:/etc/nginx/conf.d
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    networks:
+      - rewards
+
+  .certbot:
+    profiles: [ "deploy" ]
+    container_name: certbot
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - rewards
+
+networks:
+  rewards:
+    driver: bridge
