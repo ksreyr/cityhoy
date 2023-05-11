@@ -6,7 +6,7 @@
 docker-compose.yml
 Dockerfile
 init-letsencrypt.sh
-README.md
+README.PRIVATE.md
 data
 
 # dependencies
